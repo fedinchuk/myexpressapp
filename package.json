@@ -10,7 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.12.1",
     "express": "^4.19.2",
+    "prisma": "^5.12.1",
     "sqlite3": "^5.1.7"
   }
 }
