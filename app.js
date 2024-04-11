@@ -9,7 +9,7 @@ const port = 3000;
 app.use(express.json());
 
 app.use((req, res, next) => {
-  console.log("Метод", req.method, "і шлях", req.path, "запиту.");
+  console.log("Метод", req.method, "і шлях", req.path, "запиту.", req.url);
   next();
 });
 
@@ -20,9 +20,15 @@ const userSchema = Joi.object({
 
 //дивимося всіх користувачів
 app.get("/users", async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 3;
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+
   try {
     const users = await prisma.user.findMany();
-    res.json(users);
+    const usersSlice = users.slice(startIndex, endIndex);
+    res.json(usersSlice);
   } catch (err) {
     res.status(400).json({ error: err.massage });
   }
