@@ -9,7 +9,7 @@ const port = 3000;
 app.use(express.json());
 
 app.use((req, res, next) => {
-  console.log("Метод", req.method, "і шлях", req.path, "запиту.", req.url);
+  console.log("Метод", req.method, "і шлях", req.path, "запиту.", "URL:", req.url);
   next();
 });
 
@@ -106,7 +106,6 @@ app.delete("/users/:id", async (req, res) => {
     res.status(400).json({ error: err.massage });
   }
 });
-
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
