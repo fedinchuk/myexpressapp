@@ -28,8 +28,8 @@ describe("GET /users", () => {
   test("should respond with a list of users", async () => {
     const response = await request(app).get("/users");
     expect(response.statusCode).toBe(200);
-    expect(response.body).toBeInstanceOf(Array); // Хочемо певірити що нам повертається масив
-    expect(response.body.length).toBe(3); // Тобто ми створювали 4 користувачів 
+    expect(response.body).toBeInstanceOf(Array);
+    expect(response.body.length).toBe(3);
   });
 
   test("should paginate the results", async () => {
@@ -39,8 +39,8 @@ describe("GET /users", () => {
   });
 
   test("should handle invlaid page and limit parameters", async () => {
-    const response = await request(app).get("/users?page=-1&limit=abc");
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toBeInstanceOf(Array);
+    const response = await request(app).get("/users?page=-1&limit=abc"); // обробляється запит GET до `/users` з невірними параметрами `page` та `limit`
+    expect(response.statusCode).toBe(200); // повернення статус коду 200
+    expect(response.body).toBeInstanceOf(Array); //повернення масиву користувачів
   })
 });
