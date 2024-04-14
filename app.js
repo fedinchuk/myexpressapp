@@ -35,18 +35,43 @@ app.get("/users", async (req, res) => {
 });
 
 //дивимось якогось окремого користувача
+// app.get("/users/:id", async (req, res) => {
+//   const { id } = req.params;
+//   try {
+//     const user = await prisma.user.findUnique({
+//       where: {
+//         id: parseInt(id)
+//       },
+//     });
+//     if (user) {
+//       res.json(user);
+//     } else {
+//       res.status(404).json({ message: "User not found"})
+//     }
+//   } catch (err) {
+//     res.status(400).json({ error: err.massage });
+//   }
+// });
+
 app.get("/users/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const user = await prisma.user.findUnique({
-      where: {
-        id: parseInt(id)
-      },
-    });
+    let user  = cache.get(id);
+
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { id: parseInt(id) },
+      });
+      cache.set(id, user);
+      console.log(`Користувача з номером ${id} отримано з бази даних`);
+    } else {
+      console.log(`Користувача з номером ${id} отримано з кешу`);
+    }
+
     if (user) {
       res.json(user);
     } else {
-      res.status(404).json({ message: "User not found"})
+      res.status(404).json({ message: "Користувача не знайдений"})
     }
   } catch (err) {
     res.status(400).json({ error: err.massage });
@@ -107,10 +132,14 @@ app.delete("/users/:id", async (req, res) => {
   }
 });
 
-if (require.main == module) {
-  app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`);
-  })
-}
+app.listen(port, () => {
+  console.log(`Example app listening at http://localhost:${port}`);
+})
 
-module.exports = app; // Експортували наш додаток по новому
+// if (require.main == module) {
+//   app.listen(port, () => {
+//     console.log(`Example app listening at http://localhost:${port}`);
+//   })
+// }
+
+// module.exports = app; // Експортували наш додаток по новому
