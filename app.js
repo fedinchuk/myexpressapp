@@ -22,7 +22,11 @@ const userSchema = Joi.object({
 
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
-})
+});
+
+app.get("/status", (req, res) => {
+  res.status(200).send("Сервер працює");
+});
 
 //дивимося всіх користувачів
 app.get("/users", async (req, res) => {
