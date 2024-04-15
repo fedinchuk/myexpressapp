@@ -1,8 +1,10 @@
 const express = require ("express");
 const { PrismaClient } = require ("@prisma/client");
 const Joi = require("joi");
+const NodeCache = require("node-cache");
 
 const prisma = new PrismaClient();
+const cache = new NodeCache();
 const app = express();
 const port = 3000;
 
@@ -53,10 +55,12 @@ app.get("/users", async (req, res) => {
 //   }
 // });
 
+//дивимось якогось окремого користувача, перший запит з бази даних, всі наступні з кешу
 app.get("/users/:id", async (req, res) => {
   const { id } = req.params;
+
   try {
-    let user  = cache.get(id);
+    let user = cache.get(id);
 
     if (!user) {
       user = await prisma.user.findUnique({
@@ -77,6 +81,31 @@ app.get("/users/:id", async (req, res) => {
     res.status(400).json({ error: err.massage });
   }
 });
+
+//дивимось якогось окремого користувача, перший запит з бази даних, всі наступні з кешу
+// app.get("/users/:id", async (req, res) => {
+//   const { id } = req.params;
+//   const cachedData = cache.get(id);
+
+//   try {
+//     if (!cachedData) {
+//         const user = await prisma.user.findUnique({
+//           where: { id: Number(id) },
+//         });
+//       if (user) {
+//         cache.set(user.id, user, 60)
+
+//         res.status(200).json(user);
+//       } else {
+//         res.status(404).json({ message: "Користувача не знайдений" });
+//       }
+//     } else {
+//       res.status(200).json(cachedData);
+//     }
+//   } catch (err) {
+//     res.status(400).json({ error: err.massage });
+//   }
+// });
 
 //створюємо користувача
 app.post("/users", async (req, res) => {
