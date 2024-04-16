@@ -212,6 +212,7 @@ app.get("/profile", async (req, res) => {
     res.send(`Привіт, ${req.session.username}`);
   } else {
     res.send("Будь ласка, увійдіть");
+    console.log(err);
   }
 });
 
