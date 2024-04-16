@@ -168,6 +168,7 @@ app.post("/register", async(req, res) => {
     res.status(200).send("User was created");
   } catch (err) {
     res.status(500).send("Error while creating a user");
+    console.log(err);
   }
 });
 
@@ -208,7 +209,7 @@ app.post("/change-password", async (req, res) => {
     });
 
     if(!user) {
-      return res.status(401).send("No user found");
+      return res.status(401).send("Користувача не знайдено");
     }
 
     const isValidPassword = await bcrypt.compare(currentPassword, user.hashedPassword);
