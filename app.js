@@ -197,6 +197,39 @@ app.post("/login", async(req, res) => {
   }
 });
 
+app.post("/change-password", async (req, res) => {
+  const { email, currentPassword, newPassword } = req.body;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email
+      }
+    });
+
+    if(!user) {
+      return res.status(401).send("No user found");
+    }
+
+    const isValidPassword = await bcrypt.compare(currentPassword, user.hashedPassword);
+    if (!isValidPassword) {
+      return res.status(401).send("Неправильний старий пароль");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { email: email },
+      data: { hashedPassword: hashedPassword }
+    });
+
+    res.status(200).send("Пароль успішно змінено")
+  } catch (err) {
+    res.status(500).send("Помилка під час зміни пароля");
+  }
+});
+
 if (require.main == module) {
   app.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`);
