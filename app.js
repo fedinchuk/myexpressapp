@@ -204,7 +204,6 @@ app.post("/login", async(req, res) => {
     res.status(200).send("Login successful");
   } catch (err) {
     res.status(500).send("Login error");
-    console.log(err);
   }
 });
 
