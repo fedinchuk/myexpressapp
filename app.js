@@ -2,6 +2,7 @@ const express = require ("express");
 const { PrismaClient } = require ("@prisma/client");
 const Joi = require("joi");
 const NodeCache = require("node-cache");
+const bcrypt = require("bcrypt");
 
 const prisma = new PrismaClient();
 const cache = new NodeCache();
@@ -115,26 +116,6 @@ app.get("/users/:id", async (req, res) => {
 //   }
 // });
 
-//створюємо користувача
-app.post("/users", async (req, res) => {
-  const userData = req.body;
-  const { value, error } = userSchema.validate(userData);
-  if (error) {
-    return res.status(400).json(`Error: ${error.message}`);
-  }
-
-  const { name, email } = value;
-
-  try {
-    const user = await prisma.user.create({
-      data: { name, email },
-    });
-    res.status(201).json(user);
-  } catch (err) {
-    res.status(400).json({ error: err.massage });
-  }
-});
-
 //оновлюємо користувача
 app.put("/users/:id", async (req, res) => {
   const { id } = req.params;
@@ -166,6 +147,27 @@ app.delete("/users/:id", async (req, res) => {
     res.json({ message: "User deleted" });
   } catch (err) {
     res.status(400).json({ error: err.massage });
+  }
+});
+
+app.post("/register", async(req, res) => {
+  const { name, password, email } = req.body;
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        hashedPassword,
+        email,
+      }
+    })
+
+    res.status(200).send("User was created");
+  } catch (err) {
+    res.status(500).send("Error while creating a user");
   }
 });
 
