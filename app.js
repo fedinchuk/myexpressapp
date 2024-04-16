@@ -168,7 +168,6 @@ app.post("/register", async(req, res) => {
     res.status(200).send("User was created");
   } catch (err) {
     res.status(500).send("Error while creating a user");
-    console.log(err);
   }
 });
 
