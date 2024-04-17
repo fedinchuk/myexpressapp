@@ -3,8 +3,9 @@ const { PrismaClient } = require ("@prisma/client");
 const Joi = require("joi");
 const NodeCache = require("node-cache");
 const bcrypt = require("bcrypt");
-const session = require("express-session");
-const escapeHtml = require('escape-html');
+// const session = require("express-session");
+const escapeHtml = require("escape-html");
+const {authenticateToken, generateToken} = require("./security");
 
 const prisma = new PrismaClient();
 const cache = new NodeCache();
@@ -18,11 +19,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(session({
-  secret: "your_secretkey_here",
-  resave: false,
-  saveUninitialized: true,
-}));
+// app.use(session({
+//   secret: "your_secretkey_here",
+//   resave: false,
+//   saveUninitialized: true,
+// }));
 
 const userSchema = Joi.object({
   name: Joi.string().min(3).max(30).required(),
@@ -38,7 +39,7 @@ app.get("/status", (req, res) => {
 });
 
 // дивимося всіх користувачів
-app.get("/users", async (req, res) => {
+app.get("/users", authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 3;
   const startIndex = (page - 1) * limit;
@@ -54,7 +55,7 @@ app.get("/users", async (req, res) => {
 });
 
 // дивимось якогось окремого користувача
-// app.get("/users/:id", async (req, res) => {
+// app.get("/users/:id", authenticateToken, async (req, res) => {
 //   const { id } = req.params;
 //   try {
 //     const user = await prisma.user.findUnique({
@@ -125,7 +126,7 @@ app.get("/users/:id", async (req, res) => {
 // });
 
 // оновлюємо користувача
-app.put("/users/:id", async (req, res) => {
+app.put("/users/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { name, email } = req.body;
 
@@ -143,7 +144,7 @@ app.put("/users/:id", async (req, res) => {
 });
 
 // видаляємо
-app.delete("/users/:id", async (req, res) => {
+app.delete("/users/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -179,7 +180,7 @@ app.post("/register", async(req, res) => {
   }
 });
 
-app.post("/loginn", async(req, res) => {
+app.post("/login", async(req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -199,16 +200,17 @@ app.post("/loginn", async(req, res) => {
       return res.status(401).send("Invalid password");
     }
 
-    req.session.username = user.name;
-    req.session.userId = user.id;
+    // req.session.username = user.name;
+    // req.session.userId = user.id;
+    token = generateToken(user);
 
-    res.status(200).send("Login successful");
+    res.status(200).send({message: "Login successful", token: token});
   } catch (err) {
     res.status(500).send("Login error");
   }
 });
 
-app.get("/profile", async (req, res) => {
+app.get("/profilepp", async (req, res) => {
   if (req.session.username) {
     res.send(`Привіт, ${req.session.username}`);
   } else {
@@ -278,9 +280,9 @@ app.post("/loginpp", async(req, res) => {
   }
 });
 
-app.get("/profilepp", async (req, res) => {
-  if (req.session.username) {
-    res.send(`Привіт, ${req.session.username}!`);
+app.get("/profile", authenticateToken, async (req, res) => {
+  if (req.user) {
+    res.send(`Привіт, ${req.user.username}!`);
   } else {
     res.send("Будь ласка, увійдіть.");
   }
@@ -288,61 +290,61 @@ app.get("/profilepp", async (req, res) => {
 
 
 // перевірка автентифікації
-function isAuthenticated (req, res, next) {
-  if (req.session.user) next()
-  else next('route')
-}
-app.get('/', isAuthenticated, (req, res) => {
-  // це викликається лише тоді, коли є автентифікований користувач через isAuthenticated
-  res.send('Привіт, ' + escapeHtml(req.session.user) + '!' +
-    ' <a href="/logout">Вийти</a>')
-})
+// function isAuthenticated (req, res, next) {
+//   if (req.session.user) next()
+//   else next('route')
+// }
+// app.get('/', isAuthenticated, (req, res) => {
+//   // це викликається лише тоді, коли є автентифікований користувач через isAuthenticated
+//   res.send('Привіт, ' + escapeHtml(req.session.user) + '!' +
+//     ' <a href="/logout">Вийти</a>')
+// })
 
-app.get('/', (req, res) => {
-  res.send('<form action="/login" method="post">' +
-    'Ім`я користувача: <input name="user"><br>' +
-    'Пароль: <input name="pass" type="password"><br>' +
-    '<input type="submit" text="Login"></form>')
-})
+// app.get('/', (req, res) => {
+//   res.send('<form action="/login" method="post">' +
+//     'Ім`я користувача: <input name="user"><br>' +
+//     'Пароль: <input name="pass" type="password"><br>' +
+//     '<input type="submit" text="Login"></form>')
+// })
 
-app.post('/login', express.urlencoded({ extended: false }), (req, res) => {
-  // тут буде реалізовано логіку входу для перевірки req.body.user і req.body.pass.
-  // для цього прикладу працює будь-яке комбо
+// app.post('/login', express.urlencoded({ extended: false }), (req, res) => {
+//   // тут буде реалізовано логіку входу для перевірки req.body.user і req.body.pass.
+//   // для цього прикладу працює будь-яке комбо
 
-  // повторно генерувати сеанс, що є хорошою практикою для захисту від форм фіксації сеансу
-  req.session.regenerate((err) => {
-    if (err) next(err)
+//   // повторно генерувати сеанс, що є хорошою практикою для захисту від форм фіксації сеансу
+//   req.session.regenerate((err) => {
+//     if (err) next(err)
 
-    // зберігати інформацію про користувача в сесії, як правило, ідентифікатор користувача
-    req.session.user = req.body.user
+//     // зберігати інформацію про користувача в сесії, як правило, ідентифікатор користувача
+//     req.session.user = req.body.user
 
-    // зберегти сеанс перед перенаправленням, щоб гарантувати, що завантаження
-    // сторінки не відбудеться до того, як сеанс буде збережено
-    req.session.save((err) => {
-      if (err) return next(err)
-      res.redirect('/')
-    })
-  })
-})
+//     // зберегти сеанс перед перенаправленням, щоб гарантувати, що завантаження
+//     // сторінки не відбудеться до того, як сеанс буде збережено
+//     req.session.save((err) => {
+//       if (err) return next(err)
+//       res.redirect('/')
+//     })
+//   })
+// })
 
-app.get('/logout', (req, res, next) => {
-  // логіка виходу
+// app.get('/logout', (req, res, next) => {
+//   // логіка виходу
 
-  // видалити користувача з об’єкта сесії та зберегти.
-  // це гарантує, що повторне використання старого ідентифікатора
-  // сеансу не матиме зареєстрованого користувача
-  req.session.user = null
-  req.session.save((err) => {
-    if (err) next(err)
+//   // видалити користувача з об’єкта сесії та зберегти.
+//   // це гарантує, що повторне використання старого ідентифікатора
+//   // сеансу не матиме зареєстрованого користувача
+//   req.session.user = null
+//   req.session.save((err) => {
+//     if (err) next(err)
 
-    // повторно генерувати сеанс, що є хорошою практикою 
-    // для захисту від форм фіксації сеансу
-    req.session.regenerate((err) => {
-      if (err) next(err)
-      res.redirect('/')
-    })
-  })
-})
+//     // повторно генерувати сеанс, що є хорошою практикою 
+//     // для захисту від форм фіксації сеансу
+//     req.session.regenerate((err) => {
+//       if (err) next(err)
+//       res.redirect('/')
+//     })
+//   })
+// })
 
 
 if (require.main == module) {
