@@ -4,6 +4,7 @@ const Joi = require("joi");
 const NodeCache = require("node-cache");
 const bcrypt = require("bcrypt");
 const session = require("express-session");
+const escapeHtml = require('escape-html');
 
 const prisma = new PrismaClient();
 const cache = new NodeCache();
@@ -36,7 +37,7 @@ app.get("/status", (req, res) => {
   res.status(200).send("Сервер працює");
 });
 
-//дивимося всіх користувачів
+// дивимося всіх користувачів
 app.get("/users", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 3;
@@ -52,7 +53,7 @@ app.get("/users", async (req, res) => {
   }
 });
 
-//дивимось якогось окремого користувача
+// дивимось якогось окремого користувача
 // app.get("/users/:id", async (req, res) => {
 //   const { id } = req.params;
 //   try {
@@ -71,7 +72,7 @@ app.get("/users", async (req, res) => {
 //   }
 // });
 
-//дивимось якогось окремого користувача, перший запит з бази даних, всі наступні з кешу
+// дивимось якогось окремого користувача, перший запит з бази даних, всі наступні з кешу
 app.get("/users/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -98,7 +99,7 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
-//дивимось якогось окремого користувача, перший запит з бази даних, всі наступні з кешу
+// дивимось якогось окремого користувача, перший запит з бази даних, всі наступні з кешу
 // app.get("/users/:id", async (req, res) => {
 //   const { id } = req.params;
 //   const cachedData = cache.get(id);
@@ -123,7 +124,7 @@ app.get("/users/:id", async (req, res) => {
 //   }
 // });
 
-//оновлюємо користувача
+// оновлюємо користувача
 app.put("/users/:id", async (req, res) => {
   const { id } = req.params;
   const { name, email } = req.body;
@@ -141,7 +142,7 @@ app.put("/users/:id", async (req, res) => {
   }
 });
 
-//видаляємо
+// видаляємо
 app.delete("/users/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -178,7 +179,7 @@ app.post("/register", async(req, res) => {
   }
 });
 
-app.post("/login", async(req, res) => {
+app.post("/loginn", async(req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -248,10 +249,106 @@ app.post("/change-password", async (req, res) => {
   }
 });
 
+app.post("/loginpp", async(req, res) => {
+  const { name, password } = req.body;
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        name: name
+      }
+    });
+
+    if (!user) {
+      return res.status(401).send("Користувача не знайдено");
+    }
+
+    const isValid = await bcrypt.compare(password, user.hashedPassword);
+
+    if (!isValid) {
+      return res.status(401).send("Недійсний пароль");
+    }
+
+    req.session.username = user.name;
+    req.session.userId = user.id;
+
+    res.status(200).send("Вхід успішний");
+  } catch (err) {
+    res.status(500).send("Помилка входу");
+  }
+});
+
+app.get("/profilepp", async (req, res) => {
+  if (req.session.username) {
+    res.send(`Привіт, ${req.session.username}!`);
+  } else {
+    res.send("Будь ласка, увійдіть.");
+  }
+});
+
+
+// перевірка автентифікації
+function isAuthenticated (req, res, next) {
+  if (req.session.user) next()
+  else next('route')
+}
+app.get('/', isAuthenticated, (req, res) => {
+  // це викликається лише тоді, коли є автентифікований користувач через isAuthenticated
+  res.send('Привіт, ' + escapeHtml(req.session.user) + '!' +
+    ' <a href="/logout">Вийти</a>')
+})
+
+app.get('/', (req, res) => {
+  res.send('<form action="/login" method="post">' +
+    'Ім`я користувача: <input name="user"><br>' +
+    'Пароль: <input name="pass" type="password"><br>' +
+    '<input type="submit" text="Login"></form>')
+})
+
+app.post('/login', express.urlencoded({ extended: false }), (req, res) => {
+  // тут буде реалізовано логіку входу для перевірки req.body.user і req.body.pass.
+  // для цього прикладу працює будь-яке комбо
+
+  // повторно генерувати сеанс, що є хорошою практикою для захисту від форм фіксації сеансу
+  req.session.regenerate((err) => {
+    if (err) next(err)
+
+    // зберігати інформацію про користувача в сесії, як правило, ідентифікатор користувача
+    req.session.user = req.body.user
+
+    // зберегти сеанс перед перенаправленням, щоб гарантувати, що завантаження
+    // сторінки не відбудеться до того, як сеанс буде збережено
+    req.session.save((err) => {
+      if (err) return next(err)
+      res.redirect('/')
+    })
+  })
+})
+
+app.get('/logout', (req, res, next) => {
+  // логіка виходу
+
+  // видалити користувача з об’єкта сесії та зберегти.
+  // це гарантує, що повторне використання старого ідентифікатора
+  // сеансу не матиме зареєстрованого користувача
+  req.session.user = null
+  req.session.save((err) => {
+    if (err) next(err)
+
+    // повторно генерувати сеанс, що є хорошою практикою 
+    // для захисту від форм фіксації сеансу
+    req.session.regenerate((err) => {
+      if (err) next(err)
+      res.redirect('/')
+    })
+  })
+})
+
+
 if (require.main == module) {
   app.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`);
   })
 }
 
-module.exports = app; // Експортували наш додаток по новому
+module.exports = app; // eкспортували наш додаток по новому
